@@ -6,3 +6,8 @@
 # go dip tools
 
 github.com/go-god/gdi
+
+# providers
+    
+    You can pass the provider into the msa.Start method as an Option through the 
+    msa.WithProviders or msa.WithConfigProviders method to start the service.
