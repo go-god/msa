@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-god/gdi"
 	"github.com/go-god/gdi/factory"
-
 	"github.com/go-god/msa/config"
 	"github.com/go-god/msa/provides"
 )
