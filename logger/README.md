@@ -16,7 +16,7 @@
 
 # how to use logger
 
-    please see example
+    please see test
     
 # zap
     
