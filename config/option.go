@@ -1,6 +1,6 @@
 package config
 
-// Option for configSetting
+// Option for ConfigOption
 type Option func(*ConfigOption)
 
 // WithConfigDir set config dir

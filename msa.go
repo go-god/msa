@@ -34,9 +34,11 @@ type Engine struct {
 	providers        []provides.Provider // all provides
 	stopCh           chan struct{}       // stop chan,if you call ActiveStop() application will exit
 
-	// config provider optional
+	// config provider these are optional parameters
+	configDir       string                    // config dirname
+	configFile      string                    // config file
 	configInterface config.ConfigInterface    // config read interface
-	configProviders []provides.ConfigProvider // all config providers
+	configProviders []provides.ConfigProvider // all provides.ConfigProvider
 }
 
 // engine default engine
@@ -76,7 +78,23 @@ func New(opts ...Option) *Engine {
 		o(e)
 	}
 
+	// If the configuration file directory and file, regenerate a config interface.
+	e.resetConfInterface()
+
 	return e
+}
+
+func (e *Engine) resetConfInterface() {
+	var confOptions []config.Option
+	if e.configDir != "" {
+		confOptions = append(confOptions, config.WithConfigDir(e.configDir))
+	}
+	if e.configFile != "" {
+		confOptions = append(confOptions, config.WithConfigFile(e.configFile))
+	}
+	if len(confOptions) > 0 {
+		e.configInterface = config.New(confOptions...)
+	}
 }
 
 // inject values stop action
@@ -137,6 +155,8 @@ func (e *Engine) Start() {
 	if err != nil {
 		panic("inject invoke error: " + err.Error())
 	}
+
+	log.Println("msa started successfully")
 
 	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
 	// recv signal to exit main goroutine
