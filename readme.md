@@ -5,7 +5,7 @@
 
 # go dip tools
 
-github.com/go-god/gdi
+https://github.com/go-god/gdi
 
 # providers
     
