@@ -32,7 +32,7 @@ type Engine struct {
 	injectType       factory.InjectType  // inject type as: factory.FbInject or factory.DigInject
 	invokeFunc       []interface{}       // invoke func
 	providers        []provides.Provider // all provides
-	stopCh           chan struct{}       // stop chan,if you call ActiveStop() application will exit
+	stopCh           chan struct{}       // stop chan,if you call Stop() application will exit
 
 	// config provider these are optional parameters
 	configDir       string                    // config dirname
@@ -50,9 +50,9 @@ func Start(opts ...Option) {
 	engine.Start()
 }
 
-// ActiveStop if receive active exit signal,the application will exit
-func ActiveStop() {
-	engine.ActiveStop()
+// Stop if receive active exit signal,the application will exit
+func Stop() {
+	engine.Stop()
 }
 
 func defaultInjector() gdi.Injector {
@@ -165,15 +165,15 @@ func (e *Engine) Start() {
 	select {
 	case sig := <-e.signal:
 		log.Println("receive exit signal: ", sig.String())
+		e.gracefulStop()
 	case <-e.stopCh:
-		log.Println("receive active exit signal")
 	}
-
-	e.stop()
 }
 
-// stop stop application
-func (e *Engine) stop() {
+// gracefulStop stop application
+func (e *Engine) gracefulStop() {
+	defer log.Println("msa exit successfully")
+
 	// Create a deadline to wait for.
 	ctx, cancel := context.WithTimeout(context.Background(), e.gracefulWait)
 	defer cancel()
@@ -196,7 +196,9 @@ func (e *Engine) stop() {
 	log.Println("server shutting down")
 }
 
-// ActiveStop if receive active exit signal,the application will exit
-func (e *Engine) ActiveStop() {
+// Stop if receive active exit signal,the application will exit
+func (e *Engine) Stop() {
+	log.Println("receive stop action signal")
+	e.gracefulStop()
 	close(e.stopCh)
 }

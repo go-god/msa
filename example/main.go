@@ -7,9 +7,7 @@ import (
 func main() {
 	msa.Start()
 
-	/*
-		go msa.Start()
-		time.Sleep(6 * time.Second)
-		msa.ActiveStop()
-	*/
+	// go msa.Start()
+	// time.Sleep(5 * time.Second)
+	// msa.Stop()
 }
