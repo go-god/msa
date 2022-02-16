@@ -2,36 +2,43 @@ package provides
 
 import (
 	"github.com/go-god/gdi"
+
 	"github.com/go-god/msa/config"
 )
 
 // Provider config provider interface
 type Provider interface {
 	Provide() *gdi.Object
-	Name() string   // provider name
-	Group() string  // provider group name
-	String() string // provider string
+}
+
+// Option providerOption functional option
+type Option func(o providerOption)
+type providerOption struct {
+	name  string // provider name
+	group string // // provider group
 }
 
 // ConfigProvider config provider
 type ConfigProvider interface {
-	Provide(c config.ConfigInterface) Provider
+	Provide(c config.ConfigInterface) []Provider
 }
 
 var provideObjects = make([]*gdi.Object, 0, 20)
 
 // Register register Provider
-func Register(p Provider) {
-	obj := &gdi.Object{
-		Value: p.Provide(),
+func Register(p Provider, opts ...Option) {
+	obj := p.Provide()
+	providerOpt := providerOption{}
+	for _, o := range opts {
+		o(providerOpt)
 	}
 
-	if name := p.Name(); name != "" {
-		obj.Name = name
+	if providerOpt.name != "" {
+		obj.Name = providerOpt.name
 	}
 
-	if group := p.Group(); group != "" {
-		obj.Group = group
+	if providerOpt.group != "" {
+		obj.Group = providerOpt.group
 	}
 
 	provideObjects = append(provideObjects, obj)

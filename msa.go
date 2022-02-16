@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-god/gdi"
 	"github.com/go-god/gdi/factory"
+
 	"github.com/go-god/msa/config"
 	"github.com/go-god/msa/provides"
 )
@@ -20,6 +21,10 @@ type initInterface interface {
 
 type stopInterface interface {
 	Stop(ctx context.Context)
+}
+
+type startInterface interface {
+	Start() error
 }
 
 // Engine application engine
@@ -35,10 +40,10 @@ type Engine struct {
 	stopCh           chan struct{}       // stop chan,if you call Stop() application will exit
 
 	// config provider these are optional parameters
-	configDir       string                    // config dirname
-	configFile      string                    // config file
-	configInterface config.ConfigInterface    // config read interface
-	configProviders []provides.ConfigProvider // all provides.ConfigProvider
+	configDir       string                  // config dirname
+	configFile      string                  // config file
+	configInterface config.ConfigInterface  // config read interface
+	configProvider  provides.ConfigProvider // all provides.ConfigProvider
 }
 
 // engine default engine
@@ -63,7 +68,7 @@ func defaultConfig() config.ConfigInterface {
 	return config.New()
 }
 
-// New create an application engine
+// New create an application for msa engine
 func New(opts ...Option) *Engine {
 	e := &Engine{
 		gracefulWait:     5 * time.Second,
@@ -71,14 +76,18 @@ func New(opts ...Option) *Engine {
 		interruptSignals: InterruptSignals,
 		stopCh:           make(chan struct{}, 1),
 		injector:         defaultInjector(),
-		configInterface:  defaultConfig(),
 	}
 
 	for _, o := range opts {
 		o(e)
 	}
 
-	// If the configuration file directory and file, regenerate a config interface.
+	// if opts has no ConfigInterface will use it
+	if e.configInterface == nil {
+		e.configInterface = defaultConfig()
+	}
+
+	// if the configuration file directory and file, regenerate a config interface.
 	e.resetConfInterface()
 
 	return e
@@ -112,8 +121,12 @@ func (e *Engine) loadProvides() {
 		provides.Register(p)
 	}
 
-	for _, p := range e.configProviders { // config providers
-		provides.Register(p.Provide(e.configInterface))
+	if e.configProvider != nil {
+		// register all providers from configProvider
+		configProviders := e.configProvider.Provide(e.configInterface)
+		for _, p := range configProviders {
+			provides.Register(p)
+		}
 	}
 
 	if provideObjects := provides.ProvideObjects(); len(provideObjects) > 0 {
@@ -135,16 +148,6 @@ func (e *Engine) Start() {
 		}
 	}
 
-	// before invoke init action
-	for _, val := range e.injectValues {
-		if initStream, ok := val.Value.(initInterface); ok {
-			err = initStream.Init()
-			if err != nil {
-				panic("init error: " + err.Error())
-			}
-		}
-	}
-
 	// invoke objects
 	if len(e.invokeFunc) > 0 {
 		err = e.injector.Invoke(e.invokeFunc...)
@@ -154,6 +157,26 @@ func (e *Engine) Start() {
 
 	if err != nil {
 		panic("inject invoke error: " + err.Error())
+	}
+
+	// after invoke init action
+	// perform some init operations after the binding is performed.
+	for _, val := range e.injectValues {
+		if initStream, ok := val.Value.(initInterface); ok {
+			err = initStream.Init()
+			if err != nil {
+				panic("init error: " + err.Error())
+			}
+		}
+	}
+
+	for _, val := range e.injectValues {
+		if startStream, ok := val.Value.(startInterface); ok {
+			err = startStream.Start()
+			if err != nil {
+				panic("start error: " + err.Error())
+			}
+		}
 	}
 
 	log.Println("msa started successfully")

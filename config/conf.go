@@ -1,6 +1,6 @@
 package config
 
-// ConfigInterface
+// ConfigInterface config load interface
 type ConfigInterface interface {
 	// Load load config
 	Load(opts ...Option) error

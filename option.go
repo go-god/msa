@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-god/gdi"
 	"github.com/go-god/gdi/factory"
+
 	"github.com/go-god/msa/config"
 	"github.com/go-god/msa/logger"
 	"github.com/go-god/msa/provides"
@@ -57,10 +58,10 @@ func WithProviders(provides ...provides.Provider) Option {
 	}
 }
 
-// WithConfigProviders add config providers
-func WithConfigProviders(configProviders ...provides.ConfigProvider) Option {
+// WithConfigProvider add config providers
+func WithConfigProvider(configProvider provides.ConfigProvider) Option {
 	return func(e *Engine) {
-		e.configProviders = append(e.configProviders, configProviders...)
+		e.configProvider = configProvider
 	}
 }
 
