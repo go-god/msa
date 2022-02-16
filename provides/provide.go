@@ -11,13 +11,6 @@ type Provider interface {
 	Provide() *gdi.Object
 }
 
-// Option providerOption functional option
-type Option func(o providerOption)
-type providerOption struct {
-	name  string // provider name
-	group string // // provider group
-}
-
 // ConfigProvider config provider
 type ConfigProvider interface {
 	Provide(c config.ConfigInterface) []Provider
