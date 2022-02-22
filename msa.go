@@ -60,6 +60,16 @@ func Stop() {
 	engine.Stop()
 }
 
+// LoadConf get key from configInterface,obj must be a pointer
+func LoadConf(key string, obj interface{}) error {
+	return engine.LoadConf(key, obj)
+}
+
+// IsSet check configInterface is set key
+func IsSet(key string) bool {
+	return engine.IsSet(key)
+}
+
 func defaultInjector() gdi.Injector {
 	return factory.CreateDI(factory.FbInject)
 }
@@ -201,9 +211,9 @@ func (e *Engine) gracefulStop() {
 	ctx, cancel := context.WithTimeout(context.Background(), e.gracefulWait)
 	defer cancel()
 
-	// Doesn't block if no connections, but will otherwise wait
+	// Doesn't block if no service run, but will otherwise wait
 	// until the timeout deadline.
-	// Optionally, you could run srv.Shutdown in a goroutine and block on
+	// Optionally, you could run it in a goroutine and block on
 	// if your application should wait for other services
 	// to finalize based on context cancellation.
 	done := make(chan struct{}, 1)
@@ -224,4 +234,14 @@ func (e *Engine) Stop() {
 	log.Println("receive stop action signal")
 	e.gracefulStop()
 	close(e.stopCh)
+}
+
+// LoadConf get key from configInterface,obj must be a pointer
+func (e *Engine) LoadConf(key string, obj interface{}) error {
+	return e.configInterface.GetValue(key, obj)
+}
+
+// IsSet configInterface is set key
+func (e *Engine) IsSet(key string) bool {
+	return e.configInterface.IsSet(key)
 }
