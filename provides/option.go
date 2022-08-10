@@ -15,8 +15,8 @@ func WithProviderName(name string) Option {
 }
 
 // WithProviderGroup set provider group
-func WithProviderGroup(name string) Option {
+func WithProviderGroup(group string) Option {
 	return func(o providerOption) {
-		o.name = name
+		o.group = group
 	}
 }

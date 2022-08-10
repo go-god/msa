@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-god/gdi"
 	"github.com/go-god/gdi/factory"
-
 	"github.com/go-god/msa/config"
 	"github.com/go-god/msa/provides"
 )
@@ -34,7 +33,6 @@ type Engine struct {
 	signal           chan os.Signal      // recv interrupt signals
 	injectValues     []*gdi.Object       // inject objects
 	injector         gdi.Injector        // dip inject interface
-	injectType       factory.InjectType  // inject type as: factory.FbInject or factory.DigInject
 	invokeFunc       []interface{}       // invoke func
 	providers        []provides.Provider // all provides
 	stopCh           chan struct{}       // stop chan,if you call Stop() application will exit
