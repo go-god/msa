@@ -13,17 +13,19 @@ import (
 	"github.com/go-god/msa/provides"
 )
 
-// initInterface init interface
-type initInterface interface {
+// initializer init interface
+type initializer interface {
 	Init() error
 }
 
-type stopInterface interface {
-	Stop(ctx context.Context)
+// starter start interface
+type starter interface {
+	Start() error
 }
 
-type startInterface interface {
-	Start() error
+// stoppable stop interface
+type stoppable interface {
+	Stop()
 }
 
 // Engine application engine
@@ -101,6 +103,21 @@ func New(opts ...Option) *Engine {
 	return e
 }
 
+// Start run app
+func (e *Engine) Start() {
+	// load all provides
+	e.loadProvides()
+
+	// invoke inject objects
+	e.invokeInjects()
+
+	// wait exit signal
+	e.waitExitSignal()
+
+	// graceful stop
+	e.gracefulStop()
+}
+
 func (e *Engine) resetConfInterface() {
 	var confOptions []config.Option
 	if e.configDir != "" {
@@ -111,15 +128,6 @@ func (e *Engine) resetConfInterface() {
 	}
 	if len(confOptions) > 0 {
 		e.configInterface = config.New(confOptions...)
-	}
-}
-
-// inject values stop action
-func (e *Engine) shutdown(ctx context.Context) {
-	for _, val := range e.injectValues {
-		if stopStream, ok := val.Value.(stopInterface); ok {
-			stopStream.Stop(ctx)
-		}
 	}
 }
 
@@ -142,95 +150,71 @@ func (e *Engine) loadProvides() {
 	}
 }
 
-// Start start application
-func (e *Engine) Start() {
-	// load all provides
-	e.loadProvides()
+func (e *Engine) waitExitSignal() {
+	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
+	// receive signal to exit main goroutine
+	// Block until we receive our signal.
+	signal.Notify(e.signal, e.interruptSignals...)
+	select {
+	case sig := <-e.signal:
+		signal.Stop(e.signal)
+		log.Println("receive exit signal: ", sig.String())
+	case <-e.stopCh:
+	}
+}
 
-	var err error
+func (e *Engine) invokeInjects() {
 	// init inject objects
 	if len(e.injectValues) > 0 {
-		err = e.injector.Provide(e.injectValues...)
-		if err != nil {
+		if err := e.injector.Provide(e.injectValues...); err != nil {
 			panic("provide inject objects error: " + err.Error())
 		}
 	}
 
 	// invoke objects
-	if len(e.invokeFunc) > 0 {
-		err = e.injector.Invoke(e.invokeFunc...)
-	} else {
-		err = e.injector.Invoke()
-	}
-
-	if err != nil {
+	if err := e.injector.Invoke(e.invokeFunc...); err != nil {
 		panic("inject invoke error: " + err.Error())
 	}
 
 	// after invoke init action
 	// perform some init operations after the binding is performed.
 	for _, val := range e.injectValues {
-		if initStream, ok := val.Value.(initInterface); ok {
-			err = initStream.Init()
-			if err != nil {
+		if initStream, ok := val.Value.(initializer); ok {
+			if err := initStream.Init(); err != nil {
 				panic("init error: " + err.Error())
 			}
 		}
 	}
 
 	for _, val := range e.injectValues {
-		if startStream, ok := val.Value.(startInterface); ok {
-			err = startStream.Start()
-			if err != nil {
+		if startStream, ok := val.Value.(starter); ok {
+			if err := startStream.Start(); err != nil {
 				panic("start error: " + err.Error())
 			}
 		}
 	}
 
 	log.Println("msa started successfully")
-
-	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
-	// recv signal to exit main goroutine
-	signal.Notify(e.signal, e.interruptSignals...)
-	// Block until we receive our signal.
-	select {
-	case sig := <-e.signal:
-		log.Println("receive exit signal: ", sig.String())
-		e.gracefulStop()
-	case <-e.stopCh:
-	}
 }
 
 // gracefulStop stop application
 func (e *Engine) gracefulStop() {
 	defer log.Println("msa exit successfully")
 
-	// Create a deadline to wait for.
+	for _, val := range e.injectValues {
+		if s, ok := val.Value.(stoppable); ok {
+			s.Stop()
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), e.gracefulWait)
 	defer cancel()
-
-	// Doesn't block if no service run, but will otherwise wait
-	// until the timeout deadline.
-	// Optionally, you could run it in a goroutine and block on
-	// if your application should wait for other services
-	// to finalize based on context cancellation.
-	done := make(chan struct{}, 1)
-	go func() {
-		defer close(done)
-
-		e.shutdown(ctx)
-	}()
-
-	<-done
 	<-ctx.Done()
-
-	log.Println("server shutting down")
 }
 
 // Stop if receive active exit signal,the application will exit
 func (e *Engine) Stop() {
 	log.Println("receive stop action signal")
-	e.gracefulStop()
 	close(e.stopCh)
 }
 
