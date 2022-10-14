@@ -70,14 +70,6 @@ func IsSet(key string) bool {
 	return engine.IsSet(key)
 }
 
-func defaultInjector() gdi.Injector {
-	return factory.CreateDI(factory.FbInject)
-}
-
-func defaultConfig() config.ConfigInterface {
-	return config.New()
-}
-
 // New create an application for msa engine
 func New(opts ...Option) *Engine {
 	e := &Engine{
@@ -111,24 +103,47 @@ func (e *Engine) Start() {
 	// invoke inject objects
 	e.invokeInjects()
 
+	// run init and start action
+	e.run()
+
 	// wait exit signal
 	e.waitExitSignal()
-
-	// graceful stop
-	e.gracefulStop()
 }
 
-func (e *Engine) resetConfInterface() {
-	var confOptions []config.Option
-	if e.configDir != "" {
-		confOptions = append(confOptions, config.WithConfigDir(e.configDir))
+// Stop if receive active exit signal,the application will exit
+func (e *Engine) Stop() {
+	close(e.stopCh)
+	e.shutdown()
+}
+
+// LoadConf get key from configInterface,obj must be a pointer
+func (e *Engine) LoadConf(key string, obj interface{}) error {
+	return e.configInterface.GetValue(key, obj)
+}
+
+// IsSet configInterface is set key
+func (e *Engine) IsSet(key string) bool {
+	return e.configInterface.IsSet(key)
+}
+
+func (e *Engine) run() {
+	for _, val := range e.injectValues {
+		if initStream, ok := val.Value.(initializer); ok {
+			if err := initStream.Init(); err != nil {
+				panic("init error: " + err.Error())
+			}
+		}
 	}
-	if e.configFile != "" {
-		confOptions = append(confOptions, config.WithConfigFile(e.configFile))
+
+	for _, val := range e.injectValues {
+		if startStream, ok := val.Value.(starter); ok {
+			if err := startStream.Start(); err != nil {
+				panic("start error: " + err.Error())
+			}
+		}
 	}
-	if len(confOptions) > 0 {
-		e.configInterface = config.New(confOptions...)
-	}
+
+	log.Println("msa started successfully")
 }
 
 // loadProvides load providers and config inject providers
@@ -159,46 +174,26 @@ func (e *Engine) waitExitSignal() {
 	case sig := <-e.signal:
 		signal.Stop(e.signal)
 		log.Println("receive exit signal: ", sig.String())
+		e.shutdown()
 	case <-e.stopCh:
+		log.Println("receive stop signal")
 	}
 }
 
 func (e *Engine) invokeInjects() {
 	// init inject objects
-	if len(e.injectValues) > 0 {
-		if err := e.injector.Provide(e.injectValues...); err != nil {
-			panic("provide inject objects error: " + err.Error())
-		}
+	if err := e.injector.Provide(e.injectValues...); err != nil {
+		panic("provide inject objects error: " + err.Error())
 	}
 
 	// invoke objects
 	if err := e.injector.Invoke(e.invokeFunc...); err != nil {
 		panic("inject invoke error: " + err.Error())
 	}
-
-	// after invoke init action
-	// perform some init operations after the binding is performed.
-	for _, val := range e.injectValues {
-		if initStream, ok := val.Value.(initializer); ok {
-			if err := initStream.Init(); err != nil {
-				panic("init error: " + err.Error())
-			}
-		}
-	}
-
-	for _, val := range e.injectValues {
-		if startStream, ok := val.Value.(starter); ok {
-			if err := startStream.Start(); err != nil {
-				panic("start error: " + err.Error())
-			}
-		}
-	}
-
-	log.Println("msa started successfully")
 }
 
-// gracefulStop stop application
-func (e *Engine) gracefulStop() {
+// shutdown graceful stop application
+func (e *Engine) shutdown() {
 	defer log.Println("msa exit successfully")
 
 	for _, val := range e.injectValues {
@@ -212,18 +207,23 @@ func (e *Engine) gracefulStop() {
 	<-ctx.Done()
 }
 
-// Stop if receive active exit signal,the application will exit
-func (e *Engine) Stop() {
-	log.Println("receive stop action signal")
-	close(e.stopCh)
+func (e *Engine) resetConfInterface() {
+	var confOptions []config.Option
+	if e.configDir != "" {
+		confOptions = append(confOptions, config.WithConfigDir(e.configDir))
+	}
+	if e.configFile != "" {
+		confOptions = append(confOptions, config.WithConfigFile(e.configFile))
+	}
+	if len(confOptions) > 0 {
+		e.configInterface = config.New(confOptions...)
+	}
 }
 
-// LoadConf get key from configInterface,obj must be a pointer
-func (e *Engine) LoadConf(key string, obj interface{}) error {
-	return e.configInterface.GetValue(key, obj)
+func defaultInjector() gdi.Injector {
+	return factory.CreateDI(factory.FbInject)
 }
 
-// IsSet configInterface is set key
-func (e *Engine) IsSet(key string) bool {
-	return e.configInterface.IsSet(key)
+func defaultConfig() config.ConfigInterface {
+	return config.New()
 }
