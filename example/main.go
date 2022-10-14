@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-god/msa"
+	"github.com/go-god/msa/config"
 )
 
 func main() {
@@ -14,7 +15,10 @@ func main() {
 	// time.Sleep(5 * time.Second)
 	// msa.Stop()
 
-	engine := msa.New(msa.WithGracefulWait(5 * time.Second))
+	engine := msa.New(
+		msa.WithGracefulWait(5*time.Second),
+		msa.WithConfigInterface(config.New(config.WithConfigFile("test.yaml"))),
+	)
 	var appName string
 	engine.LoadConf("app_name", &appName)
 	log.Println("app_name: ", appName)

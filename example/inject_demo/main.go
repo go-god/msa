@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-god/gdi"
 	"github.com/go-god/msa"
+	"github.com/go-god/msa/config"
 )
 
 // Service svc
@@ -47,6 +48,7 @@ func main() {
 		msa.WithInjectValues(&gdi.Object{
 			Value: &Service{},
 		}),
+		msa.WithConfigInterface(config.New(config.WithConfigFile("test.yaml"))),
 	}
 
 	// the first way
