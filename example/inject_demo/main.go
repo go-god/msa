@@ -11,8 +11,8 @@ import (
 
 // Service svc
 type Service struct {
-	AppName string `json:"app_name"`
-	AppEnv  string `json:"app_env"`
+	AppName string `json:"app_name" mapstructure:"app_name"`
+	AppEnv  string `json:"app_env" mapstructure:"app_env"`
 }
 
 // App application
