@@ -4,7 +4,7 @@ package provides
 type Option func(o providerOption)
 type providerOption struct {
 	name  string // provider name
-	group string // // provider group
+	group string // provider group
 }
 
 // WithProviderName set provider name
